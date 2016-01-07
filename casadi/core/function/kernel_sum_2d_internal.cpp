@@ -663,77 +663,81 @@ namespace casadi {
   void KernelSum2DOcl::generateBody(CodeGenerator& g) const {
     g.addInclude("CL/cl.h");
     g.addInclude("stdio.h");
+    
+    int& ind = g.added_dependencies_[this];
 
-    g.declarations << "static cl_kernel kernel_ = 0;" << std::endl;
-    g.declarations << "static cl_command_queue commands_ = 0;" << std::endl;
-    g.declarations << "static cl_context context_ = 0;" << std::endl;
-    g.declarations << "static cl_mem d_im_ = 0;" << std::endl;
-    g.declarations << "static cl_mem d_sum_ = 0;" << std::endl;
-    g.declarations << "static cl_mem d_args_ = 0;" << std::endl;
+    g.declarations << "static cl_kernel kernel" << ind << "_ = 0;" << std::endl;
+    g.declarations << "static cl_command_queue commands" << ind << "_ = 0;" << std::endl;
+    g.declarations << "static cl_context context" << ind << "_ = 0;" << std::endl;
+    g.declarations << "static cl_mem d_im" << ind << "_ = 0;" << std::endl;
+    g.declarations << "static cl_mem d_sum" << ind << "_ = 0;" << std::endl;
+    g.declarations << "static cl_mem d_args" << ind << "_ = 0;" << std::endl;
     // NB: we copy the host pointers here too
     g.declarations << "#define MIN(a,b) (((a)<(b))?(a):(b))" << std::endl;
     g.declarations << "#define MAX(a,b) (((a)>(b))?(a):(b))" << std::endl;
     g.declarations << "#define check_cl_error(a) if ((a) != CL_SUCCESS) {  printf(\"exit code '%d' in '%s' on line %d\\n\",a, __FILE__,__LINE__);exit(a);}" << std::endl;
 
-    g.setup << "  cl_uint numPlatforms;" << std::endl;
-    g.setup << "  int err = clGetPlatformIDs(0, NULL, &numPlatforms);" << std::endl;
-    g.setup << "  cl_platform_id Platform[numPlatforms];" << std::endl;
-    g.setup << "  err = clGetPlatformIDs(numPlatforms, Platform, NULL);" << std::endl;
+    g.setup << "  {" << std::endl;
+    g.setup << "    cl_uint numPlatforms;" << std::endl;
+    g.setup << "    int err = clGetPlatformIDs(0, NULL, &numPlatforms);" << std::endl;
+    g.setup << "    cl_platform_id Platform[numPlatforms];" << std::endl;
+    g.setup << "    err = clGetPlatformIDs(numPlatforms, Platform, NULL);" << std::endl;
 
     //casadi_assert_message(err == CL_SUCCESS, "CL error during getting platforms: " << err);
 
-    g.setup << "  cl_device_id mydevices[" << opencl_select_.size() << "];"  << std::endl;
+    g.setup << "    cl_device_id mydevices[" << opencl_select_.size() << "];"  << std::endl;
 
     // Secure a GPU
-    g.setup << "  int i,j;" << std::endl;
-    g.setup << "  for (i = 0; i < numPlatforms; i++) {" << std::endl;
-    g.setup << "    cl_uint n = 0;" << std::endl;
-    g.setup << "    err = clGetDeviceIDs(Platform[i], CL_DEVICE_TYPE_ALL, 0, NULL, &n);" << std::endl;
-    g.setup << "    check_cl_error(err);" << std::endl;
-    g.setup << "    cl_device_id device_id[n];" << std::endl;
-    g.setup << "    err = clGetDeviceIDs(Platform[i], CL_DEVICE_TYPE_ALL, n, device_id, NULL);" << std::endl;
-    g.setup << "    check_cl_error(err);" << std::endl;
-    g.setup << "    mydevices[0] = device_id[0];" << std::endl;
-    g.setup << "    for (j=0;j<n;++j) {" << std::endl;
-    g.setup << "      cl_char device_name[1024] = {0};" << std::endl;
-    g.setup << "      err = clGetDeviceInfo( device_id[j],CL_DEVICE_NAME, sizeof(device_name), &device_name, NULL);" << std::endl;
+    g.setup << "    int i,j;" << std::endl;
+    g.setup << "    for (i = 0; i < numPlatforms; i++) {" << std::endl;
+    g.setup << "      cl_uint n = 0;" << std::endl;
+    g.setup << "      err = clGetDeviceIDs(Platform[i], CL_DEVICE_TYPE_ALL, 0, NULL, &n);" << std::endl;
     g.setup << "      check_cl_error(err);" << std::endl;
-    g.setup << "      printf(\"Detected device: %s\\n\",device_name);" << std::endl;
+    g.setup << "      cl_device_id device_id[n];" << std::endl;
+    g.setup << "      err = clGetDeviceIDs(Platform[i], CL_DEVICE_TYPE_ALL, n, device_id, NULL);" << std::endl;
+    g.setup << "      check_cl_error(err);" << std::endl;
+    g.setup << "      mydevices[0] = device_id[0];" << std::endl;
+    g.setup << "      for (j=0;j<n;++j) {" << std::endl;
+    g.setup << "        cl_char device_name[1024] = {0};" << std::endl;
+    g.setup << "        err = clGetDeviceInfo( device_id[j],CL_DEVICE_NAME, sizeof(device_name), &device_name, NULL);" << std::endl;
+    g.setup << "        check_cl_error(err);" << std::endl;
+    g.setup << "        printf(\"Detected device: %s\\n\",device_name);" << std::endl;
+    g.setup << "      }" << std::endl;
     g.setup << "    }" << std::endl;
-    g.setup << "}" << std::endl;
 
 
     // Create a compute context 
-    g.setup << "  context_ = clCreateContext(0, 1, mydevices, NULL, NULL, &err);" << std::endl;
+    g.setup << "    context" << ind << "_ = clCreateContext(0, 1, mydevices, NULL, NULL, &err);" << std::endl;
     //casadi_assert_message(err == CL_SUCCESS, "CL error getting device name: " << err);
 
     // Create a command queue
-    g.setup << "  commands_ = clCreateCommandQueue(context_, mydevices[0], 0, &err);" << std::endl;
+    g.setup << "    commands" << ind << "_ = clCreateCommandQueue(context" << ind << "_, mydevices[0], 0, &err);" << std::endl;
 
-    g.setup << "  const char *KernelSource = " << g.multiline_string(kernelCode()+"\n") << ";" << std::endl;
+    g.setup << "    const char *KernelSource = " << g.multiline_string(kernelCode()+"\n") << ";" << std::endl;
 
     // Create the compute program from the source buffer
-    g.setup << "  cl_program program = clCreateProgramWithSource(context_, 1, (const char **) & KernelSource, NULL, &err);" << std::endl;
+    g.setup << "    cl_program program = clCreateProgramWithSource(context" << ind << "_, 1, (const char **) & KernelSource, NULL, &err);" << std::endl;
 
 
     // Build the program  
-    g.setup << "  err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);" << std::endl;
-    g.setup << "  if (err != CL_SUCCESS) {" << std::endl;
-    g.setup << "    size_t len;" << std::endl;
-    g.setup << "    char buffer[200048];" << std::endl;
-    g.setup << "    clGetProgramBuildInfo(program, mydevices[0], CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);" << std::endl;
-    g.setup << "    printf(\"%s\\n\", buffer);" << std::endl;
-    g.setup << "    check_cl_error(err);" << std::endl;
-    g.setup << "  }" << std::endl;
+    g.setup << "    err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);" << std::endl;
+    g.setup << "    if (err != CL_SUCCESS) {" << std::endl;
+    g.setup << "      size_t len;" << std::endl;
+    g.setup << "      char buffer[200048];" << std::endl;
+    g.setup << "      clGetProgramBuildInfo(program, mydevices[0], CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);" << std::endl;
+    g.setup << "      printf(\"%s\\n\", buffer);" << std::endl;
+    g.setup << "      check_cl_error(err);" << std::endl;
+    g.setup << "    }" << std::endl;
 
 
     // Create the compute kernel from the program 
-    g.setup << "  kernel_ = clCreateKernel(program, \"mykernel\", &err);" << std::endl;
-    g.setup << "  check_cl_error(err);" << std::endl;
-
+    g.setup << "    kernel" << ind << "_ = clCreateKernel(program, \"mykernel\", &err);" << std::endl;
+    g.setup << "    check_cl_error(err);" << std::endl;
+    g.setup << "  }" << std::endl;
+    
     g.body << "  int i,j,k;" << std::endl;
 
-    g.body << "  if (context_==0) jit_setup();" << std::endl;
+    g.body << "  if (context" << ind << "_==0) jit_setup();" << std::endl;
     g.body << "  int i_offset;" << std::endl;
     g.body << "  int j_offset;" << std::endl;
     g.body << "  size_t global = " << s_*ss_ << ";" << std::endl;
@@ -780,30 +784,30 @@ namespace casadi {
 
     g.body << "  int err;" << std::endl;
     // NB: we copy the host pointers here too
-    g.body << "  d_args_  = clCreateBuffer(context_,  CL_MEM_READ_ONLY, sizeof(float)*" <<  arg_length_ << ", NULL, &err);" << std::endl;
+    g.body << "  d_args" << ind << "_  = clCreateBuffer(context" << ind << "_,  CL_MEM_READ_ONLY, sizeof(float)*" <<  arg_length_ << ", NULL, &err);" << std::endl;
     g.body << "  check_cl_error(err);" << std::endl;
-    g.body << "  d_im_    = clCreateBuffer(context_,  CL_MEM_READ_ONLY, sizeof(float)*" << s_*s_ << ", NULL, &err);" << std::endl;
+    g.body << "  d_im" << ind << "_    = clCreateBuffer(context" << ind << "_,  CL_MEM_READ_ONLY, sizeof(float)*" << s_*s_ << ", NULL, &err);" << std::endl;
     g.body << "  check_cl_error(err);" << std::endl;
-    g.body << "  d_sum_   = clCreateBuffer(context_,  CL_MEM_WRITE_ONLY, sizeof(float)*" << f_.nnzOut()*s_*ss_ << ", NULL, &err);" << std::endl;
-    g.body << "  check_cl_error(err);" << std::endl;
-
-    g.body << "  err = clEnqueueWriteBuffer(commands_, d_args_, CL_TRUE, 0, sizeof(float) * " << arg_length_ << ",h_args_, 0, NULL, NULL);" << std::endl;
-    g.body << "  check_cl_error(err);" << std::endl;
-    g.body << "  err = clEnqueueWriteBuffer(commands_, d_im_, CL_TRUE, 0, sizeof(float) * " << s_*s_ << ",h_im_, 0, NULL, NULL);" << std::endl;
+    g.body << "  d_sum" << ind << "_   = clCreateBuffer(context" << ind << "_,  CL_MEM_WRITE_ONLY, sizeof(float)*" << f_.nnzOut()*s_*ss_ << ", NULL, &err);" << std::endl;
     g.body << "  check_cl_error(err);" << std::endl;
 
-    g.body << "  err   = clSetKernelArg(kernel_, 0, sizeof(cl_mem), &d_im_);" << std::endl;
-    g.body << "  err  |= clSetKernelArg(kernel_, 1, sizeof(cl_mem), &d_sum_);" << std::endl;
-    g.body << "  err  |= clSetKernelArg(kernel_, 2, sizeof(cl_mem), &d_args_);" << std::endl;
-    g.body << "  err  |= clSetKernelArg(kernel_, 3, sizeof(int), &i_offset);" << std::endl;
-    g.body << "  err  |= clSetKernelArg(kernel_, 4, sizeof(int), &j_offset);" << std::endl;
+    g.body << "  err = clEnqueueWriteBuffer(commands" << ind << "_, d_args" << ind << "_, CL_TRUE, 0, sizeof(float) * " << arg_length_ << ",h_args_, 0, NULL, NULL);" << std::endl;
+    g.body << "  check_cl_error(err);" << std::endl;
+    g.body << "  err = clEnqueueWriteBuffer(commands" << ind << "_, d_im" << ind << "_, CL_TRUE, 0, sizeof(float) * " << s_*s_ << ",h_im_, 0, NULL, NULL);" << std::endl;
     g.body << "  check_cl_error(err);" << std::endl;
 
-    g.body << "  err = clEnqueueNDRangeKernel(commands_, kernel_, 1, NULL, &global, NULL, 0, NULL, NULL);" << std::endl;
+    g.body << "  err   = clSetKernelArg(kernel" << ind << "_, 0, sizeof(cl_mem), &d_im" << ind << "_);" << std::endl;
+    g.body << "  err  |= clSetKernelArg(kernel" << ind << "_, 1, sizeof(cl_mem), &d_sum" << ind << "_);" << std::endl;
+    g.body << "  err  |= clSetKernelArg(kernel" << ind << "_, 2, sizeof(cl_mem), &d_args" << ind << "_);" << std::endl;
+    g.body << "  err  |= clSetKernelArg(kernel" << ind << "_, 3, sizeof(int), &i_offset);" << std::endl;
+    g.body << "  err  |= clSetKernelArg(kernel" << ind << "_, 4, sizeof(int), &j_offset);" << std::endl;
     g.body << "  check_cl_error(err);" << std::endl;
-    g.body << "  err = clFinish(commands_);" << std::endl;
+
+    g.body << "  err = clEnqueueNDRangeKernel(commands" << ind << "_, kernel" << ind << "_, 1, NULL, &global, NULL, 0, NULL, NULL);" << std::endl;
     g.body << "  check_cl_error(err);" << std::endl;
-    g.body << "  err = clEnqueueReadBuffer( commands_, d_sum_, CL_TRUE, 0, " << sizeof(float) * (f_.nnzOut()*s_*ss_) << ", h_sum_, 0, NULL, NULL ); " << std::endl;
+    g.body << "  err = clFinish(commands" << ind << "_);" << std::endl;
+    g.body << "  check_cl_error(err);" << std::endl;
+    g.body << "  err = clEnqueueReadBuffer( commands" << ind << "_, d_sum" << ind << "_, CL_TRUE, 0, " << sizeof(float) * (f_.nnzOut()*s_*ss_) << ", h_sum_, 0, NULL, NULL ); " << std::endl;
     g.body << "  check_cl_error(err);" << std::endl;
     double tout = getRealTime();
     g.body << "  kk = 0;" << std::endl;
