@@ -116,7 +116,9 @@ namespace casadi {
       AUX_PROJECT,
       AUX_TRANS,
       AUX_TO_MEX,
-      AUX_FROM_MEX
+      AUX_FROM_MEX,
+      AUX_ASSERT,
+      AUX_MINMAX
     };
 
     /** \brief Add a built-in auxiliary function */

@@ -485,6 +485,14 @@ namespace casadi {
 
     // Add the appropriate function
     switch (f) {
+    case AUX_ASSERT:
+      this->auxiliaries << "#define assert_action(a, ACTION) if (!a) {  printf(\"In '%s' on line %d:\\n\",__FILE__,__LINE__);ACTION;exit(a);}" << endl;
+      addInclude("stdio.h");
+      break;
+    case AUX_MINMAX:
+      this->auxiliaries << "#define MIN(a,b) (((a)<(b))?(a):(b))" << endl;
+      this->auxiliaries << "#define MAX(a,b) (((a)>(b))?(a):(b))" << endl;
+      break;
     case AUX_COPY_N:
       this->auxiliaries
         << codegen_str_copy_n

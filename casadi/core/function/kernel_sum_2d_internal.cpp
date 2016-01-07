@@ -661,8 +661,12 @@ namespace casadi {
   }
 
   void KernelSum2DOcl::generateBody(CodeGenerator& g) const {
+  
+    g.addAuxiliary(CodeGenerator::AUX_MINMAX);
+    g.addAuxiliary(CodeGenerator::AUX_ASSERT);
+    
     g.addInclude("CL/cl.h");
-    g.addInclude("stdio.h");
+
     
     int& ind = g.added_dependencies_[this];
 
@@ -673,10 +677,8 @@ namespace casadi {
     g.declarations << "static cl_mem d_sum" << ind << "_ = 0;" << std::endl;
     g.declarations << "static cl_mem d_args" << ind << "_ = 0;" << std::endl;
     // NB: we copy the host pointers here too
-    g.declarations << "#define MIN(a,b) (((a)<(b))?(a):(b))" << std::endl;
-    g.declarations << "#define MAX(a,b) (((a)>(b))?(a):(b))" << std::endl;
-    g.declarations << "#define check_cl_error(a) if ((a) != CL_SUCCESS) {  printf(\"exit code '%d' in '%s' on line %d\\n\",a, __FILE__,__LINE__);exit(a);}" << std::endl;
-
+    g.declarations << "#define check_cl_error(a) assert_action(a == CL_SUCCESS, printf(\"OpenCL exit code '%d'\\n\",a))" << std::endl;
+ 
     g.setup << "  {" << std::endl;
     g.setup << "    cl_uint numPlatforms;" << std::endl;
     g.setup << "    int err = clGetPlatformIDs(0, NULL, &numPlatforms);" << std::endl;
@@ -737,7 +739,6 @@ namespace casadi {
     
     g.body << "  int i,j,k;" << std::endl;
 
-    g.body << "  if (context" << ind << "_==0) jit_setup();" << std::endl;
     g.body << "  int i_offset;" << std::endl;
     g.body << "  int j_offset;" << std::endl;
     g.body << "  size_t global = " << s_*ss_ << ";" << std::endl;
