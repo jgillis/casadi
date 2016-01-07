@@ -29,17 +29,6 @@
 #include "kernel_sum_2d.hpp"
 #include "function_internal.hpp"
 
-#ifdef WITH_OPENCL
-
-#include "CL/cl.h"
-
-// pick up device type from compiler command line or from the default type
-#ifndef DEVICE
-#define DEVICE CL_DEVICE_TYPE_DEFAULT
-#endif
-
-#endif // WITH_OPENCL
-
 /// \cond INTERNAL
 
 namespace casadi {
@@ -143,7 +132,6 @@ namespace casadi {
 
   };
 
-#ifdef WITH_OPENCL
   /** KernelSum2D statement
       \author Joris Gillis
       \date 2015
@@ -175,20 +163,6 @@ namespace casadi {
     /// Obtain code for the kernel
     std::string kernelCode() const;
 
-    std::vector<cl_device_id> devices_;
-
-    cl_context context_;
-/**
-    cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, int, int> *kernel_;
-    cl::CommandQueue queue_;
-
-    cl::Buffer d_im_;
-    cl::Buffer d_args_;
-    cl::Buffer d_sum_;
-*/
-    std::vector< float > h_sum_;
-    std::vector< float > h_args_;
-    std::vector< float > h_im_;
 
     int nnz_in_;
     int nnz_fixed_;
@@ -209,8 +183,6 @@ namespace casadi {
     virtual void generateBody(CodeGenerator& g) const;
 
   };
-
-#endif // WITH_OPENCL
 
 } // namespace casadi
 /// \endcond

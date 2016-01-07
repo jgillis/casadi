@@ -50,12 +50,7 @@ namespace casadi {
                        "Falling back to serial mode.");
   #endif // WITH_OPENMP
       } else if (par_op->second == "opencl") {
-  #ifdef WITH_OPENCL
         return new KernelSum2DOcl(f, size, r, n);
-  #else // WITH_OPENCL
-        casadi_warning("CasADi was not compiled with OpenCL. "
-                       "Falling back to serial mode.");
-  #endif // WITH_OPENMP
       }
       return new KernelSum2DSerial(f, size, r, n);
     }
@@ -567,10 +562,7 @@ namespace casadi {
     // Call the initialization method of the base class
     KernelSum2DBase::init();
 
-
     s_ = round(r_)*2+1;
-    h_im_.resize(s_*s_);
-
     ss_ = 2;
 
     sfrac_ = double(s_)/ss_;
@@ -579,15 +571,11 @@ namespace casadi {
     for (int i=2; i<num_in; ++i) {
       arg_length_+= f_.inputSparsity(i).nnz();
     }
-
-    h_args_.resize(arg_length_);
-    h_sum_.resize(f_.nnzOut()*s_*ss_);
-
     
     // Read in options
     opencl_select_ = getOption("opencl_select");
 
-    //alloc_w(f_.sz_w() + nnz_out_+3 + sizeof(float)*(s_*s_+arg_length_+f_.nnzOut()*s_*ss_)/sizeof(double));
+    alloc_w(f_.sz_w() + nnz_out_+3 + sizeof(float)*(s_*s_+arg_length_+f_.nnzOut()*s_*ss_)/sizeof(double));
 
   }
   
@@ -615,13 +603,13 @@ namespace casadi {
     code << "   int i_offset," << std::endl;  
     code << "   int j_offset) {" << std::endl; 
 
-    code << "  float args_local[" << h_args_.size() << "];" << std::endl;
+    code << "  float args_local[" << arg_length_ << "];" << std::endl;
     code << "  float p[2];" << std::endl;
     code << "  float value;" << std::endl;
     code << "  int jj = get_global_id(0);" << std::endl;
     code << "  int j = jj / " << ss_ << ";" << std::endl;
     code << "  int jk = jj % " << ss_ << ";" << std::endl;
-    code << "  for (int k=0;k<"<< h_args_.size() << ";++k) { args_local[k] = args[k]; }" << std::endl;
+    code << "  for (int k=0;k<"<< arg_length_ << ";++k) { args_local[k] = args[k]; }" << std::endl;
 
     code << "  int iw[" << f_.sz_iw() << "];" << std::endl;
     code << "  float w[" << f_.sz_w() << "];" << std::endl;
@@ -683,9 +671,6 @@ namespace casadi {
     g.declarations << "static cl_mem d_sum_ = 0;" << std::endl;
     g.declarations << "static cl_mem d_args_ = 0;" << std::endl;
     // NB: we copy the host pointers here too
-    g.declarations << "static float h_args_[" <<  arg_length_ << "];" << std::endl;
-    g.declarations << "static float h_im_[" << s_*s_ << "];" << std::endl;
-    g.declarations << "static float h_sum_["   << f_.nnzOut()*s_*ss_  << "];" << std::endl;
     g.declarations << "#define MIN(a,b) (((a)<(b))?(a):(b))" << std::endl;
     g.declarations << "#define MAX(a,b) (((a)>(b))?(a):(b))" << std::endl;
     g.declarations << "#define check_cl_error(a) if ((a) != CL_SUCCESS) {  printf(\"exit code '%d' in '%s' on line %d\\n\",a, __FILE__,__LINE__);exit(a);}" << std::endl;
@@ -767,7 +752,11 @@ namespace casadi {
     g.body << "  int u = round(X[0]);" << std::endl;
     g.body << "  int v = round(X[1]);" << std::endl;
     g.body << "  int r = round(" << r_ << ");" << std::endl;
-
+    
+    g.body << "  float *h_args_ = (float*) (w+" << f_.sz_w() + nnz_out_+3 << ");" << std::endl;
+    g.body << "  float *h_im_ = (float*) (w+" << f_.sz_w() + nnz_out_+3 <<  "+sizeof(float)*("<< arg_length_ << ")/sizeof(double));" << std::endl;
+    g.body << "  float *h_sum_ = (float*) (w+" << f_.sz_w() + nnz_out_+3 <<  "+sizeof(float)*("<< arg_length_ + s_*s_ << ")/sizeof(double));" << std::endl;
+    
     g.body << "  for (i =0;i<" << s_*s_ << ";++i) h_im_[i] = 0;" << std::endl;
 
     g.body << "  j_offset = v-r;" << std::endl;
