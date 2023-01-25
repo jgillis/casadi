@@ -21,12 +21,6 @@ jobs:
       with:
         fetch-depth: 0 # for git-restore-mtime
     - uses: chetan/git-restore-mtime-action@v1.2
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v2.1.0
-      with:
-          registry: ghcr.io
-          username: jgillis
-          password: ${{ secrets.GITHUB_TOKEN }}
           
     - name: generate Python 2
       run: >
@@ -58,7 +52,6 @@ jobs:
     - name: Upload files to a GitHub release
       uses: svenstaro/upload-release-action@2.4.0
       with:
-        repo_token: ${{ secrets.CASADIBOT_TOKEN}}
         overwrite: true
         tag: nightly-${{ env.GITHUB_REF_SLUG }}
         file: casadi-${{ env.GITHUB_REF_SLUG }}.${{ env.GITHUB_SHA_SHORT }}-source.zip
@@ -262,7 +255,7 @@ jobs:
       - name: Delete old release assets
         uses: mknejp/delete-release-assets@v1
         with:
-          token: ${{ secrets.CASADIBOT_TOKEN}}
+          token: ${{ github.token }}
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           assets: casadi-*-${{matrix.image == 'macos-m1' && 'osx_arm64' || 'osx64'}}-py${{matrix.py2}}-untested.zip
           fail-if-no-release: false
@@ -270,7 +263,6 @@ jobs:
       - name: Upload files to a GitHub release
         uses: svenstaro/upload-release-action@2.4.0
         with:
-          repo_token: ${{ secrets.CASADIBOT_TOKEN}}
           overwrite: true
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           file: casadi-${{ env.GITHUB_REF_SLUG }}.${{ env.GITHUB_SHA_SHORT }}-${{matrix.image == 'macos-m1' && 'osx_arm64' || 'osx64'}}-py${{matrix.py2}}-untested.zip
@@ -299,7 +291,7 @@ jobs:
       - name: Delete old release assets
         uses: mknejp/delete-release-assets@v1
         with:
-          token: ${{ secrets.CASADIBOT_TOKEN}}
+          token: ${{ github.token }}
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           assets: ${{ steps.wheel.outputs.wheel_wildcard }}
           fail-if-no-assets: false
@@ -307,7 +299,6 @@ jobs:
       - name: Upload files to a GitHub release
         uses: svenstaro/upload-release-action@2.4.0
         with:
-          repo_token: ${{ secrets.CASADIBOT_TOKEN}}
           overwrite: true
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           file: ${{ steps.wheel.outputs.wheel }}
@@ -382,7 +373,7 @@ jobs:
       - name: Delete old release assets
         uses: mknejp/delete-release-assets@v1
         with:
-          token: ${{ secrets.CASADIBOT_TOKEN}}
+          token: ${{ github.token }}
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           assets: casadi-*-${{env.os}}${{env.bitness}}-matlab${{matrix.matlab}}-untested.zip
           fail-if-no-release: false
@@ -390,7 +381,6 @@ jobs:
       - name: Upload files to a GitHub release
         uses: svenstaro/upload-release-action@2.4.0
         with:
-          repo_token: ${{ secrets.CASADIBOT_TOKEN}}
           overwrite: true
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           file: casadi-${{ env.GITHUB_REF_SLUG }}.${{ env.GITHUB_SHA_SHORT }}-${{env.os}}${{env.bitness}}-matlab${{matrix.matlab}}-untested.zip
@@ -467,7 +457,7 @@ jobs:
       - name: Delete old release assets
         uses: mknejp/delete-release-assets@v1
         with:
-          token: ${{ secrets.CASADIBOT_TOKEN}}
+          token: ${{ github.token }}
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           assets: casadi-*-${{env.os}}${{env.bitness}}-matlab${{matrix.matlab}}-untested.zip
           fail-if-no-release: false
@@ -475,7 +465,6 @@ jobs:
       - name: Upload files to a GitHub release
         uses: svenstaro/upload-release-action@2.4.0
         with:
-          repo_token: ${{ secrets.CASADIBOT_TOKEN}}
           overwrite: true
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           file: casadi-${{ env.GITHUB_REF_SLUG }}.${{ env.GITHUB_SHA_SHORT }}-${{env.os}}${{env.bitness}}-matlab${{matrix.matlab}}-untested.zip
@@ -559,7 +548,7 @@ jobs:
       - name: Delete old release assets
         uses: mknejp/delete-release-assets@v1
         with:
-          token: ${{ secrets.CASADIBOT_TOKEN}}
+          token: ${{ github.token }}
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           assets: casadi-*-${{env.os}}${{env.bitness}}-py${{matrix.py2}}-untested.zip
           fail-if-no-release: false
@@ -567,7 +556,6 @@ jobs:
       - name: Upload files to a GitHub release
         uses: svenstaro/upload-release-action@2.4.0
         with:
-          repo_token: ${{ secrets.CASADIBOT_TOKEN}}
           overwrite: true
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           file: casadi-${{ env.GITHUB_REF_SLUG }}.${{ env.GITHUB_SHA_SHORT }}-${{env.os}}${{env.bitness}}-py${{matrix.py2}}-untested.zip
@@ -595,7 +583,7 @@ jobs:
       - name: Delete old release assets
         uses: mknejp/delete-release-assets@v1
         with:
-          token: ${{ secrets.CASADIBOT_TOKEN}}
+          token: ${{ github.token }}
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           assets: ${{ steps.wheel.outputs.wheel_wildcard }}
           fail-if-no-assets: false
@@ -603,7 +591,6 @@ jobs:
       - name: Upload files to a GitHub release
         uses: svenstaro/upload-release-action@2.4.0
         with:
-          repo_token: ${{ secrets.CASADIBOT_TOKEN}}
           overwrite: true
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           file: ${{ steps.wheel.outputs.wheel }}
@@ -659,7 +646,7 @@ jobs:
       - name: Delete old release assets
         uses: mknejp/delete-release-assets@v1
         with:
-          token: ${{ secrets.CASADIBOT_TOKEN}}
+          token: ${{ github.token }}
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           assets: 'casadi-*-${{env.os}}${{matrix.bit}}-matlab${{matrix.matlab}}-tested.zip'
           fail-if-no-release: false
@@ -667,7 +654,6 @@ jobs:
       - name: Upload files to a GitHub release
         uses: svenstaro/upload-release-action@2.4.0
         with:
-          repo_token: ${{ secrets.CASADIBOT_TOKEN}}
           overwrite: true
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           file: casadi-${{ env.GITHUB_REF_SLUG }}.${{ env.GITHUB_SHA_SHORT }}-${{env.os}}${{matrix.bit}}-matlab${{matrix.matlab}}-tested.zip
@@ -773,7 +759,7 @@ jobs:
       - name: Delete old release assets
         uses: mknejp/delete-release-assets@v1
         with:
-          token: ${{ secrets.CASADIBOT_TOKEN}}
+          token: ${{ github.token }}
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           assets: 'casadi-*-${{env.os}}${{matrix.bit}}-py${{matrix.py2}}-tested.zip'
           fail-if-no-release: false
@@ -781,7 +767,6 @@ jobs:
       - name: Upload files to a GitHub release
         uses: svenstaro/upload-release-action@2.4.0
         with:
-          repo_token: ${{ secrets.CASADIBOT_TOKEN}}
           overwrite: true
           tag: nightly-${{ env.GITHUB_REF_SLUG }}
           file: casadi-${{ env.GITHUB_REF_SLUG }}.${{ env.GITHUB_SHA_SHORT }}-${{env.os}}${{matrix.bit}}-py${{matrix.py2}}-tested.zip
