@@ -1482,6 +1482,97 @@ namespace casadi {
     return Sparsity(a_nrow*b_nrow, a_ncol*b_ncol, r_colind, r_row);
   }
 
+  Sparsity Sparsity::kron_contract_inner(const Sparsity& sp_m, const Sparsity& sp_b) {
+    casadi_int mB = sp_b.size1();
+    casadi_int nB = sp_b.size2();
+    casadi_assert(mB > 0 && nB > 0,
+        "Sparsity::kron_contract_inner: sp_b must be nonempty");
+    casadi_assert(sp_m.size1() % mB == 0 && sp_m.size2() % nB == 0,
+        "Sparsity::kron_contract_inner: sp_m dims must be multiples of sp_b dims");
+    casadi_int mA = sp_m.size1() / mB;
+    casadi_int nA = sp_m.size2() / nB;
+    // Densify b's pattern into a dense lookup
+    std::vector<bool> b_dense(mB * nB, false);
+    const casadi_int* b_colind = sp_b.colind();
+    const casadi_int* b_row    = sp_b.row();
+    for (casadi_int cc = 0; cc < nB; ++cc) {
+      for (casadi_int el = b_colind[cc]; el < b_colind[cc+1]; ++el) {
+        b_dense[cc*mB + b_row[el]] = true;
+      }
+    }
+    // Walk m's CSC, set ind[i,j] = true whenever m[i*mB+r, j*nB+s] meets b[r,s]
+    std::vector<bool> y_dense(mA * nA, false);
+    casadi_int m_ncol = sp_m.size2();
+    const casadi_int* m_colind = sp_m.colind();
+    const casadi_int* m_row    = sp_m.row();
+    for (casadi_int cc = 0; cc < m_ncol; ++cc) {
+      casadi_int j = cc / nB;
+      casadi_int s = cc % nB;
+      for (casadi_int el = m_colind[cc]; el < m_colind[cc+1]; ++el) {
+        casadi_int rr = m_row[el];
+        casadi_int i = rr / mB;
+        casadi_int r = rr % mB;
+        if (b_dense[s*mB + r]) {
+          y_dense[j*mA + i] = true;
+        }
+      }
+    }
+    // Build CSC from y_dense
+    std::vector<casadi_int> y_colind(nA + 1, 0);
+    std::vector<casadi_int> y_row;
+    for (casadi_int j = 0; j < nA; ++j) {
+      for (casadi_int i = 0; i < mA; ++i) {
+        if (y_dense[j*mA + i]) y_row.push_back(i);
+      }
+      y_colind[j+1] = y_row.size();
+    }
+    return Sparsity(mA, nA, y_colind, y_row);
+  }
+
+  Sparsity Sparsity::kron_contract_outer(const Sparsity& sp_m, const Sparsity& sp_a) {
+    casadi_int mA = sp_a.size1();
+    casadi_int nA = sp_a.size2();
+    casadi_assert(mA > 0 && nA > 0,
+        "Sparsity::kron_contract_outer: sp_a must be nonempty");
+    casadi_assert(sp_m.size1() % mA == 0 && sp_m.size2() % nA == 0,
+        "Sparsity::kron_contract_outer: sp_m dims must be multiples of sp_a dims");
+    casadi_int mB = sp_m.size1() / mA;
+    casadi_int nB = sp_m.size2() / nA;
+    std::vector<bool> a_dense(mA * nA, false);
+    const casadi_int* a_colind = sp_a.colind();
+    const casadi_int* a_row    = sp_a.row();
+    for (casadi_int cc = 0; cc < nA; ++cc) {
+      for (casadi_int el = a_colind[cc]; el < a_colind[cc+1]; ++el) {
+        a_dense[cc*mA + a_row[el]] = true;
+      }
+    }
+    std::vector<bool> y_dense(mB * nB, false);
+    casadi_int m_ncol = sp_m.size2();
+    const casadi_int* m_colind = sp_m.colind();
+    const casadi_int* m_row    = sp_m.row();
+    for (casadi_int cc = 0; cc < m_ncol; ++cc) {
+      casadi_int j = cc / nB;
+      casadi_int s = cc % nB;
+      for (casadi_int el = m_colind[cc]; el < m_colind[cc+1]; ++el) {
+        casadi_int rr = m_row[el];
+        casadi_int i = rr / mB;
+        casadi_int r = rr % mB;
+        if (a_dense[j*mA + i]) {
+          y_dense[s*mB + r] = true;
+        }
+      }
+    }
+    std::vector<casadi_int> y_colind(nB + 1, 0);
+    std::vector<casadi_int> y_row;
+    for (casadi_int s = 0; s < nB; ++s) {
+      for (casadi_int r = 0; r < mB; ++r) {
+        if (y_dense[s*mB + r]) y_row.push_back(r);
+      }
+      y_colind[s+1] = y_row.size();
+    }
+    return Sparsity(mB, nB, y_colind, y_row);
+  }
+
   Sparsity Sparsity::vertcat(const std::vector<Sparsity> & sp) {
     // Quick return if possible
     if (sp.empty()) return Sparsity(0, 1);

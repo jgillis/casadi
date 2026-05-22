@@ -723,6 +723,22 @@ namespace casadi {
     static casadi_int sprank(const Sparsity& x);
     static casadi_int norm_0_mul(const Sparsity& x, const Sparsity& A);
     static Sparsity kron(const Sparsity& a, const Sparsity& b);
+
+    /** \brief Output sparsity of casadi::KronContract (inner=true)
+     *
+     * Given an (mA*mB, nA*nB) pattern `sp_m` and a (mB, nB) pattern `sp_b`,
+     * computes the (mA, nA) pattern: (i, j) is nonzero iff there exists
+     * (r, s) in `sp_b` such that (i*mB + r, j*nB + s) is in `sp_m`.
+     */
+    static Sparsity kron_contract_inner(const Sparsity& sp_m, const Sparsity& sp_b);
+
+    /** \brief Output sparsity of casadi::KronContract (inner=false)
+     *
+     * Given an (mA*mB, nA*nB) pattern `sp_m` and an (mA, nA) pattern `sp_a`,
+     * computes the (mB, nB) pattern: (r, s) is nonzero iff there exists
+     * (i, j) in `sp_a` such that (i*mB + r, j*nB + s) is in `sp_m`.
+     */
+    static Sparsity kron_contract_outer(const Sparsity& sp_m, const Sparsity& sp_a);
     static Sparsity triu(const Sparsity& x, bool includeDiagonal=true);
     static Sparsity tril(const Sparsity& x, bool includeDiagonal=true);
 

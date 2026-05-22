@@ -52,6 +52,7 @@
 #include "monitor.hpp"
 #include "dump.hpp"
 #include "repmat.hpp"
+#include "kron.hpp"
 #include "casadi_find.hpp"
 #include "casadi_low.hpp"
 #include "einstein.hpp"
@@ -1363,6 +1364,8 @@ namespace casadi {
     {OP_BSPLINE, BSplineCommon::deserialize},
     {OP_CONVEXIFY, Convexify::deserialize},
     {OP_LOGSUMEXP, LogSumExp::deserialize},
+    {OP_KRON, Kron::deserialize},
+    {OP_KRON_CONTRACT, KronContract::deserialize},
     {-1, OutputNode::deserialize}
   };
 
