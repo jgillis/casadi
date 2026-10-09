@@ -76,7 +76,7 @@ namespace casadi {
   }
 
   static const char* BLASFEO_DECL =
-  "/* BLAS \"blasfeo\" plugin: namespaced Fortran ABI, link with -lblasfeo */\n"
+  "/* BLAS \"blasfeo\" plugin: namespaced Fortran ABI, link with the BLASFEO library */\n"
   "extern void blasfeo_blas_dgemm(char* transa, char* transb,\n"
   "                               int* m, int* n, int* k,\n"
   "                               double* alpha,\n"

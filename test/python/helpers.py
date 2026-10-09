@@ -31,6 +31,7 @@ try:
 except ImportError:
     pass  # Py2: type comments are ignored at runtime
 import unittest
+import glob
 import sys
 from math import isnan, isinf
 import itertools
@@ -708,6 +709,9 @@ class casadiTestCase(unittest.TestCase):
       if isinstance(extralibs,list):
         extralibs_clean = []
         for lib in extralibs:
+            # BLASFEO built with TARGET=DYNAMIC is named blasfeo-dynamic
+            if lib=="blasfeo" and glob.glob(os.path.join(libdir,"*blasfeo-dynamic*")):
+                lib = "blasfeo-dynamic"
             if os.name=='nt':
                 if "." in lib:
                     if lib.endswith("libcasadi-tp-openblas.dll"):
@@ -861,6 +865,9 @@ class casadiTestCase(unittest.TestCase):
       if isinstance(extralibs,list):
         extralibs_clean = []
         for lib in extralibs:
+            # BLASFEO built with TARGET=DYNAMIC is named blasfeo-dynamic
+            if lib=="blasfeo" and glob.glob(os.path.join(libdir,"*blasfeo-dynamic*")):
+                lib = "blasfeo-dynamic"
             if os.name=='nt':
                 if "." in lib:
                     if lib.endswith("libcasadi-tp-openblas.dll"):

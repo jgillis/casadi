@@ -748,7 +748,7 @@ if(WITH_CORE_BLAS_DEPENDENCY)
   set(CASADI_BUILTIN_BLAS_TARGET "casadi_blas_classic")
   add_definitions(-DCASADI_CORE_BLAS_DEPENDENCY)
 endif()
-set(BUILD_BLASFEO_VERSION "0f940fbd4353399b63a6cc83e4d492b3285ccaa1" CACHE STRING "Tag/branch/hash to be used for BUILD_BLASFEO_GIT_REPO")
+set(BUILD_BLASFEO_VERSION "3c06b73c094c13eeef5344201db13a66c0a205c8" CACHE STRING "Tag/branch/hash to be used for BUILD_BLASFEO_GIT_REPO")
 set(BUILD_BLASFEO_GIT_REPO "https://github.com/jgillis/blasfeo.git" CACHE STRING "Git repo used together with BUILD_BLASFEO_VERSION")
 set(BUILD_BLASFEO_GIT_SHALLOW OFF CACHE BOOL "Use shallow clone for BLASFEO")
 option(WITH_BUILD_BLASFEO "Build BLASFEO (BUILD_BLASFEO_VERSION=${BUILD_BLASFEO_VERSION}) from downloaded source (BUILD_BLASFEO_GIT_REPO=${BUILD_BLASFEO_GIT_REPO})." OFF)
@@ -1601,7 +1601,7 @@ if(WITH_BLASFEO)
       IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/external_projects/${SHARED_LIBRARY_RELDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}${BLASFEO_LIB_NAME}${TP_LIB_SUFFIX}"
       IMPORTED_IMPLIB "${CMAKE_BINARY_DIR}/external_projects/lib/${CMAKE_IMPORT_LIBRARY_PREFIX}${BLASFEO_LIB_NAME}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
     )
-    create_import_library(blasfeo blasfeo)
+    create_import_library(blasfeo ${BLASFEO_LIB_NAME})
     install(DIRECTORY
       "${CMAKE_BINARY_DIR}/external_projects/include/"
       DESTINATION "${INCLUDE_PREFIX}"
