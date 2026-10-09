@@ -748,8 +748,8 @@ if(WITH_CORE_BLAS_DEPENDENCY)
   set(CASADI_BUILTIN_BLAS_TARGET "casadi_blas_classic")
   add_definitions(-DCASADI_CORE_BLAS_DEPENDENCY)
 endif()
-set(BUILD_BLASFEO_VERSION "fb39d77a8c2d87805d38d41635a1402b5bcb9e18" CACHE STRING "Tag/branch/hash to be used for BUILD_BLASFEO_GIT_REPO")
-set(BUILD_BLASFEO_GIT_REPO "https://github.com/giaf/blasfeo.git" CACHE STRING "Git repo used together with BUILD_BLASFEO_VERSION")
+set(BUILD_BLASFEO_VERSION "18f02549d6e22f4139af58680a3030750d9327d4" CACHE STRING "Tag/branch/hash to be used for BUILD_BLASFEO_GIT_REPO")
+set(BUILD_BLASFEO_GIT_REPO "https://github.com/jgillis/blasfeo.git" CACHE STRING "Git repo used together with BUILD_BLASFEO_VERSION")
 set(BUILD_BLASFEO_GIT_SHALLOW OFF CACHE BOOL "Use shallow clone for BLASFEO")
 option(WITH_BUILD_BLASFEO "Build BLASFEO (BUILD_BLASFEO_VERSION=${BUILD_BLASFEO_VERSION}) from downloaded source (BUILD_BLASFEO_GIT_REPO=${BUILD_BLASFEO_GIT_REPO})." OFF)
 
@@ -763,7 +763,7 @@ set(BUILD_HPIPM_DEPENDENCIES BLASFEO)
 
 # FATROP
 option(WITH_FATROP "Compile the interface to FATROP" OFF)
-set(BUILD_FATROP_VERSION "v1.1.8.mod" CACHE STRING "Tag/branch/hash to be used for BUILD_FATROP_GIT_REPO")
+set(BUILD_FATROP_VERSION "9463a7973cc11cb7f555c3fbc62ab80d7d870ef2" CACHE STRING "Tag/branch/hash to be used for BUILD_FATROP_GIT_REPO")
 set(BUILD_FATROP_GIT_REPO "https://github.com/jgillis/fatrop.git" CACHE STRING "Git repo used together with BUILD_FATROP_VERSION")
 set(BUILD_FATROP_GIT_SHALLOW OFF CACHE BOOL "Use shallow clone for FATROP")
 option(WITH_BUILD_FATROP "Build FATROP (BUILD_FATROP_VERSION=${BUILD_FATROP_VERSION}) from downloaded source (BUILD_FATROP_GIT_REPO=${BUILD_FATROP_GIT_REPO})." OFF)
@@ -1571,6 +1571,12 @@ if(WITH_BLASFEO)
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         set(C_FLAGS "-DCMAKE_C_FLAGS=-std=c99 -Wno-implicit-function-declaration -Wno-incompatible-pointer-types ${EXTERNAL_PROJECT_CFLAGS}")
     endif()
+    # one library bundling all targets of the architecture, selected at load time
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      set(BLASFEO_TARGET DYNAMIC)
+    else()
+      set(BLASFEO_TARGET GENERIC)
+    endif()
     ExternalProject_Add(blasfeo-external
       GIT_REPOSITORY ${BUILD_BLASFEO_GIT_REPO}
       GIT_SHALLOW ${BUILD_BLASFEO_GIT_SHALLOW}
@@ -1581,7 +1587,7 @@ if(WITH_BLASFEO)
       # over-allocate a guard so the read stays in-bounds (crashes on macOS).
       PATCH_COMMAND git -C <SOURCE_DIR> apply --ignore-whitespace ${CMAKE_CURRENT_SOURCE_DIR}/cmake/blasfeo_alloc_guard.patch || echo "blasfeo_alloc_guard.patch already applied or failed"
       CMAKE_COMMAND "${EXTERNAL_CMAKE_COMMAND}"
-      CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} ${C_FLAGS} -DTARGET=GENERIC -DBUILD_SHARED_LIBS=${TP_BUILD_SHARED} -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> ${CROSS_FLAGS_CMAKE})
+      CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} ${C_FLAGS} -DTARGET=${BLASFEO_TARGET} -DBUILD_SHARED_LIBS=${TP_BUILD_SHARED} -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> ${CROSS_FLAGS_CMAKE})
     set(BLASFEO_PATH "${CMAKE_BINARY_DIR}/external_projects")
     set(BLASFEO_DEPENDS_TARGET blasfeo-external)
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/external_projects/include")
