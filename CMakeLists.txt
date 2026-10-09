@@ -748,7 +748,7 @@ if(WITH_CORE_BLAS_DEPENDENCY)
   set(CASADI_BUILTIN_BLAS_TARGET "casadi_blas_classic")
   add_definitions(-DCASADI_CORE_BLAS_DEPENDENCY)
 endif()
-set(BUILD_BLASFEO_VERSION "18f02549d6e22f4139af58680a3030750d9327d4" CACHE STRING "Tag/branch/hash to be used for BUILD_BLASFEO_GIT_REPO")
+set(BUILD_BLASFEO_VERSION "0f940fbd4353399b63a6cc83e4d492b3285ccaa1" CACHE STRING "Tag/branch/hash to be used for BUILD_BLASFEO_GIT_REPO")
 set(BUILD_BLASFEO_GIT_REPO "https://github.com/jgillis/blasfeo.git" CACHE STRING "Git repo used together with BUILD_BLASFEO_VERSION")
 set(BUILD_BLASFEO_GIT_SHALLOW OFF CACHE BOOL "Use shallow clone for BLASFEO")
 option(WITH_BUILD_BLASFEO "Build BLASFEO (BUILD_BLASFEO_VERSION=${BUILD_BLASFEO_VERSION}) from downloaded source (BUILD_BLASFEO_GIT_REPO=${BUILD_BLASFEO_GIT_REPO})." OFF)
@@ -1571,11 +1571,14 @@ if(WITH_BLASFEO)
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         set(C_FLAGS "-DCMAKE_C_FLAGS=-std=c99 -Wno-implicit-function-declaration -Wno-incompatible-pointer-types ${EXTERNAL_PROJECT_CFLAGS}")
     endif()
-    # one library bundling all targets of the architecture, selected at load time
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-      set(BLASFEO_TARGET DYNAMIC)
-    else()
+    # one library (blasfeo-dynamic) bundling all targets of the architecture,
+    # selected at load time; needs a GNU-compatible compiler and assembler
+    if(EMSCRIPTEN OR MSVC)
       set(BLASFEO_TARGET GENERIC)
+      set(BLASFEO_LIB_NAME blasfeo)
+    else()
+      set(BLASFEO_TARGET DYNAMIC)
+      set(BLASFEO_LIB_NAME blasfeo-dynamic)
     endif()
     ExternalProject_Add(blasfeo-external
       GIT_REPOSITORY ${BUILD_BLASFEO_GIT_REPO}
@@ -1595,8 +1598,8 @@ if(WITH_BLASFEO)
     add_dependencies(blasfeo blasfeo-external)
     set_target_properties(blasfeo PROPERTIES
       INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external_projects/include"
-      IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/external_projects/${SHARED_LIBRARY_RELDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}blasfeo${TP_LIB_SUFFIX}"
-      IMPORTED_IMPLIB "${CMAKE_BINARY_DIR}/external_projects/lib/${CMAKE_IMPORT_LIBRARY_PREFIX}blasfeo${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+      IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/external_projects/${SHARED_LIBRARY_RELDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}${BLASFEO_LIB_NAME}${TP_LIB_SUFFIX}"
+      IMPORTED_IMPLIB "${CMAKE_BINARY_DIR}/external_projects/lib/${CMAKE_IMPORT_LIBRARY_PREFIX}${BLASFEO_LIB_NAME}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
     )
     create_import_library(blasfeo blasfeo)
     install(DIRECTORY
@@ -1629,7 +1632,7 @@ if(WITH_HPIPM)
       PREFIX "${CMAKE_BINARY_DIR}/external_projects"
       UPDATE_COMMAND ""
       CMAKE_COMMAND "${EXTERNAL_CMAKE_COMMAND}"
-      CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_RPATH=${CMAKE_INSTALL_RPATH} -DMARCH_NATIVE=OFF ${HPIPM_FLAGS} -DHPIPM_TESTING=OFF -DBUILD_SHARED_LIBS=${TP_BUILD_SHARED} -DBLASFEO_PATH=${BLASFEO_PATH} -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> ${CROSS_FLAGS_CMAKE})
+      CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_RPATH=${CMAKE_INSTALL_RPATH} -DMARCH_NATIVE=OFF ${HPIPM_FLAGS} -DHPIPM_TESTING=OFF -DBUILD_SHARED_LIBS=${TP_BUILD_SHARED} -DBLASFEO_PATH=${BLASFEO_PATH} -DHPIPM_FIND_BLASFEO=ON -DCMAKE_PREFIX_PATH=${BLASFEO_PATH} -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> ${CROSS_FLAGS_CMAKE})
     add_library(hpipm ${TP_IMPORT_KIND} IMPORTED)
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/external_projects/include")
     add_dependencies(hpipm hpipm-external)
