@@ -3,11 +3,12 @@
    ODE mode (default): z is solved by Newton internally and der(x) is returned.
    DAE mode (_D_daeMode = true, settable in Configuration Mode only): der(x) and z
    are inputs and the residuals are returned:
-     _D_DAEres0 = z^3 + z - x,  _D_DAEres1 = 2*(der(x) + p*x - z) */
+     _D_DAEres0 = z^3 + z - x,  _D_DAEres1 = 2*(der(x) + p*x - z)
+   Initial equation x = p/2, as residual (OpenModelica annotation): _D_INITres0 = x - p/2 */
 #include <stdlib.h>
 #include "fmi3Functions.h"
 
-enum {VR_TIME, VR_X, VR_DX, VR_Z, VR_P, VR_DAEMODE, VR_RES0, VR_RES1, N_VR};
+enum {VR_TIME, VR_X, VR_DX, VR_Z, VR_P, VR_DAEMODE, VR_RES0, VR_RES1, VR_INITRES0, N_VR};
 enum {MODE_INSTANTIATED, MODE_CONFIGURATION, MODE_INITIALIZATION, MODE_CONTINUOUS};
 
 typedef struct {
@@ -25,6 +26,7 @@ static void update(Model* m) {
   }
   m->v[VR_RES0] = z*z*z + z - x;
   m->v[VR_RES1] = 2*(m->v[VR_DX] + p*x - z);
+  m->v[VR_INITRES0] = x - p/2;
 }
 
 fmi3Instance fmi3InstantiateModelExchange(fmi3String instanceName,

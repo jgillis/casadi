@@ -145,6 +145,7 @@ class Daebuildertests(casadiTestCase):
     x = ca.SX.sym("x")
     dx = ca.SX.sym("dx")
     z = ca.SX.sym("z")
+    p = ca.SX.sym("p")
     f_ref = ca.Function("f_ref", [x, ca.vertcat(dx, z)],
       [ca.vertcat(z**3 + z - x, 2 * (dx + 2 * x - z))])
     # Residual is evaluated in DAE mode: not zero at an inconsistent point
@@ -152,6 +153,12 @@ class Daebuildertests(casadiTestCase):
     self.checkfunction(f, f_ref, inputs=test_point, digits=7, hessian=False,
       sens_der=False, evals=1, digits_sens=5)
     self.check_serialize(f, inputs=test_point)
+
+    # Initial equation residuals, from the OpenModelica annotation in the manifest
+    f = dae.create("f", ["x", "p"], ["ialg"])
+    f_ref = ca.Function("f_ref", [x, p], [x - p / 2])
+    self.checkfunction(f, f_ref, inputs=[1.1, 2.5], digits=7, hessian=False, sens_der=False,
+      evals=1, digits_sens=5)
 
     # Without the manifest: an ordinary ODE FMU, z solved internally
     dae = ca.DaeBuilder("lsdae_test", fmu_file, {"enable_ls_dae": False})

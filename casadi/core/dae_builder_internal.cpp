@@ -3063,6 +3063,7 @@ Function DaeBuilderInternal::fmu_fun(const std::string& name,
     scheme["quad"] = indices(Category::Q);
     for (size_t& i : scheme["quad"]) i = variable(i).der;
     scheme["alg"] = indices(Category::ALG);
+    scheme["ialg"] = ialg_;
     scheme["y"] = indices(Category::Y);
   }
   // Auxilliary variables, if any
@@ -4156,12 +4157,32 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
         has_lsdae = true;
       } catch (const std::exception& e) {
         enable_dae_vr_ = -1;
+        ialg_.clear();
         casadi_warning("Failed to load LS-DAE manifest: " + std::string(e.what()));
       }
     }
 
     // Loop over ModelStructure elements
     const XmlNode& ms = has_lsdae ? lsdae_ms : n;
+
+    // Missing 'dependencies' attribute: dependent on all knowns (time, states, inputs and,
+    // with LS-DAE, algebraic variables). Get the states from ContinuousStateDerivative first
+    std::vector<casadi_int> default_dependencies;
+    for (casadi_int i = 0; i < ms.size(); ++i) {
+      if (ms[i].name == "ContinuousStateDerivative") {
+        default_dependencies.push_back(
+          variable(vrmap_.at(ms[i].attribute<size_t>("valueReference"))).parent);
+      }
+    }
+    for (Category c : {Category::T, Category::U, Category::Z}) {
+      default_dependencies.insert(default_dependencies.end(),
+        indices(c).begin(), indices(c).end());
+    }
+    std::sort(default_dependencies.begin(), default_dependencies.end());
+    auto dependencies = [&](const XmlNode& e) {
+      return e.has_attribute("dependencies") ? read_dependencies(e) : default_dependencies;
+    };
+
     for (casadi_int i = 0; i < ms.size(); ++i) {
       const XmlNode& e = ms[i];
       try {
@@ -4172,7 +4193,7 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
           // Corresponding variable
           Variable& v = variable(indices(Category::Y).back());
           // Get dependencies
-          v.dependencies = read_dependencies(e);
+          v.dependencies = dependencies(e);
           v.dependenciesKind = read_dependencies_kind(e, v.dependencies.size());
           // Mark interdependencies
           for (casadi_int d : v.dependencies) variable(d).dependency = true;
@@ -4190,7 +4211,7 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
           // Map der field to derivative variable
           variable(v.parent).der = der_.back();
           // Get dependencies
-          v.dependencies = read_dependencies(e);
+          v.dependencies = dependencies(e);
           v.dependenciesKind = read_dependencies_kind(e, v.dependencies.size());
           // Mark interdependencies
           for (casadi_int d : v.dependencies) variable(d).dependency = true;
@@ -4202,7 +4223,7 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
           // Get index
           initial_unknowns_.push_back(vrmap_.at(e.attribute<size_t>("valueReference")));
           // Get dependencies
-          for (casadi_int d : read_dependencies(e)) variable(d).dependency = true;
+          for (casadi_int d : dependencies(e)) variable(d).dependency = true;
         } else if (e.name == "EventIndicator") {
           // Event indicator
           indices(Category::ZERO).push_back(vrmap_.at(e.attribute<size_t>("valueReference")));
@@ -4225,11 +4246,19 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
               // Corresponding variable
               Variable& v = variable(indices(Category::ALG).back());
               // Get dependencies
-              v.dependencies = read_dependencies(f);
+              v.dependencies = dependencies(f);
               v.dependenciesKind = read_dependencies_kind(f, v.dependencies.size());
             }
           }
           casadi_assert(found, "Missing index-1 formulation");
+        } else if (e.name == "InitialResidual") {
+          // Initial equation residual
+          ialg_.push_back(vrmap_.at(e.attribute<size_t>("valueReference")));
+          // Corresponding variable
+          Variable& v = variable(ialg_.back());
+          // Get dependencies
+          v.dependencies = dependencies(e);
+          v.dependenciesKind = read_dependencies_kind(e, v.dependencies.size());
         } else {
           // Unknown
           casadi_error("Unknown ModelStructure element: " + e.name);
@@ -4398,9 +4427,25 @@ XmlNode DaeBuilderInternal::import_ls_dae(const std::string& lsdae) {
     categorize(vrmap_.at(vr), Category::Z);
   }
 
-  // Return replacement
+  // Replacement ModelStructure
   casadi_assert(ls_manifest.has_child("ModelStructure"), "Missing 'ModelStructure'");
-  return ls_manifest["ModelStructure"];
+  XmlNode ms = ls_manifest["ModelStructure"];
+
+  // Initial equation residuals, cf. the OpenModelica fmi-ls-dae annotation:
+  // <Annotation type="org.openmodelica.fmi-ls-dae.initial-residuals"><InitialResiduals>
+  // <Residual valueReference=".." dependencies=".." dependenciesKind=".."/>..
+  if (ls_manifest.has_child("Annotations")) {
+    for (const XmlNode& a : ls_manifest["Annotations"].children) {
+      if (a.attribute<std::string>("type", "") != "org.openmodelica.fmi-ls-dae.initial-residuals"
+          || !a.has_child("InitialResiduals")) continue;
+      for (const XmlNode& r : a["InitialResiduals"].children) {
+        XmlNode e = r;
+        e.name = "InitialResidual";
+        ms.children.push_back(e);
+      }
+    }
+  }
+  return ms;
 }
 
 void DaeBuilderInternal::import_binding_equations(const XmlNode& eqs) {
