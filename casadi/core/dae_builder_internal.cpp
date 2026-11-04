@@ -664,6 +664,7 @@ DaeBuilderInternal::DaeBuilderInternal(const std::string& name, const std::strin
   provides_directional_derivatives_ = false;
   provides_adjoint_derivatives_ = false;
   can_be_instantiated_only_once_per_process_ = false;
+  enable_dae_vr_ = -1;
   symbolic_ = true;
   detect_quad_ = false;
   start_time_ = nan;
@@ -3992,6 +3993,8 @@ void DaeBuilderInternal::import_model_variables(const XmlNode& modvars) {
     // Causality (FMI 1.0 -> FMI 2.0+)
     std::string causality_str = vnode.attribute<std::string>("causality", "local");
     if (fmi_major_ == 1 && causality_str == "internal") causality_str = "local";
+    // FMI 3.0 structural parameters are treated as (fixed) parameters
+    if (fmi_major_ >= 3 && causality_str == "structuralParameter") causality_str = "parameter";
     Causality causality = to_enum<Causality>(causality_str);
 
     // Variability (FMI 1.0 -> FMI 2.0+)
@@ -4140,16 +4143,19 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
       try {
         // Import replacement ModelStructure
         lsdae_ms = import_ls_dae(lsdae);
-        // Append unchanged elements
+        // Append unchanged elements, unless restated in the manifest
+        std::set<std::string> restated = {"ContinuousStateDerivative", "Output"};
+        for (casadi_int i = 0; i < lsdae_ms.size(); ++i) restated.insert(lsdae_ms[i].name);
         for (casadi_int i = 0; i < n.size(); ++i) {
           const XmlNode& e = n[i];
-          if (e.name != "ContinuousStateDerivative" && e.name != "Output") {
+          if (restated.count(e.name) == 0) {
             lsdae_ms.children.push_back(e);
           }
         }
         // Use instead of original ModelStructure
         has_lsdae = true;
       } catch (const std::exception& e) {
+        enable_dae_vr_ = -1;
         casadi_warning("Failed to load LS-DAE manifest: " + std::string(e.what()));
       }
     }
@@ -4178,7 +4184,8 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
           Variable& v = variable(der_.back());
           // Add to list of states and derivative to list of dependent variables
           casadi_assert(v.parent >= 0, "Error processing derivative info for " + v.name);
-          categorize(v.index, Category::W);
+          // Keep as algebraic variable if so classified by the LS-DAE manifest
+          if (v.category != Category::Z) categorize(v.index, Category::W);
           categorize(v.parent, Category::X);
           // Map der field to derivative variable
           variable(v.parent).der = der_.back();
@@ -4203,9 +4210,11 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
         } else if (e.name == "Residual") {
           // Loop over formulations
           bool found = false;
-          for (casadi_int form = 0; form < e.size(); ++form) {
-            const XmlNode& f = e[form];
-            auto form_index = f.attribute<size_t>("index");
+          // fmi-ls-dae 1.0.0-alpha.1: attributes given directly in the Residual element
+          bool flat = e.has_attribute("valueReference");
+          for (casadi_int form = 0; form < (flat ? 1 : e.size()); ++form) {
+            const XmlNode& f = flat ? e : e[form];
+            auto form_index = flat ? 1 : f.attribute<size_t>("index");
             if (form_index == 1) {
               // Index-1 formulation
               casadi_assert(!found, "Duplicate index-1 formulations");
@@ -4374,8 +4383,13 @@ XmlNode DaeBuilderInternal::import_ls_dae(const std::string& lsdae) {
 
   // Read attributes
   auto ls_version = ls_manifest.attribute<std::string>("fmi-ls:fmi-ls-version", "");
-  casadi_assert(ls_version.empty() || ls_version == "1.0",
+  casadi_assert(ls_version.empty() || ls_version.rfind("1.0", 0) == 0,
     "Unsupported LS-DAE version: " + ls_version);
+
+  // Parameter that enables DAE mode, to be set in Configuration Mode
+  if (ls_manifest.has_child("EnableDAEParameter")) {
+    enable_dae_vr_ = ls_manifest["EnableDAEParameter"].attribute<casadi_int>("valueReference");
+  }
 
   // Process algebraic variables
   casadi_assert(ls_manifest.has_child("AlgebraicVariables"), "Missing 'AlgebraicVariables'");

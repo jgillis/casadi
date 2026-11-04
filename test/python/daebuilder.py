@@ -110,6 +110,65 @@ class Daebuildertests(casadiTestCase):
         os.remove(fmu_file)
 
   @memory_heavy() # FMU has a memleak
+  def test_fmi_ls_dae_mode(self):
+    # fmi-ls-dae FMU laid out like an OpenModelica --daeMode export: flat <Residual>
+    # elements, der(x) among the algebraic variables, and DAE mode switched on by a
+    # structural parameter that may only be set in Configuration Mode
+    feats = ca.CasadiMeta.feature_list()
+    if "ghc-filesystem" not in feats or "libzip" not in feats:
+        print("Skipping test_fmi_ls_dae_mode: ghc-filesystem/libzip not available")
+        return
+    fmi_headers = os.path.abspath("../../external_packages/FMI-Standard-3.0/headers")
+    src = "../data/fmi_ls_dae/"
+    files = {}
+    for local, arc in [("lsdae_test.c", "sources/lsdae_test.c"),
+                       ("modelDescription.xml", "modelDescription.xml"),
+                       ("fmi-ls-manifest.xml",
+                        "extra/org.fmi-standard.fmi-ls-dae/fmi-ls-manifest.xml")]:
+        with open(src + local) as f_in, open(local, "w") as f_out: f_out.write(f_in.read())
+        files[local] = arc
+    try:
+        files = ca.DaeBuilder("lsdae_test").compile_fmu(files, {"include_dirs": [fmi_headers]})
+    except Exception as e:
+        for local in files.keys():
+            if os.path.exists(local): os.remove(local)
+        print("Skipping test_fmi_ls_dae_mode: C compilation unavailable:", e)
+        return
+    fmu_file = ca.DaeBuilder("lsdae_test").pack_fmu(files, {"path": "lsdae_test.fmu"})
+
+    # With the manifest: residuals as 'alg', der(x) and z as algebraic variables
+    dae = ca.DaeBuilder("lsdae_test", fmu_file)
+    self.assertEqual(dae.x(), ["x"])
+    self.assertEqual(dae.z(), ["der(x)", "z"])
+    self.assertEqual([str(r) for r in dae.alg()], ["_D_DAEres0", "_D_DAEres1"])
+    f = dae.create("f", ["x", "z"], ["alg"])
+    x = ca.SX.sym("x")
+    dx = ca.SX.sym("dx")
+    z = ca.SX.sym("z")
+    f_ref = ca.Function("f_ref", [x, ca.vertcat(dx, z)],
+      [ca.vertcat(z**3 + z - x, 2 * (dx + 2 * x - z))])
+    # Residual is evaluated in DAE mode: not zero at an inconsistent point
+    test_point = [1.1, ca.vertcat(0.3, 0.7)]
+    self.checkfunction(f, f_ref, inputs=test_point, digits=7, hessian=False,
+      sens_der=False, evals=1, digits_sens=5)
+    self.check_serialize(f, inputs=test_point)
+
+    # Without the manifest: an ordinary ODE FMU, z solved internally
+    dae = ca.DaeBuilder("lsdae_test", fmu_file, {"enable_ls_dae": False})
+    self.assertEqual(dae.z(), [])
+    f = dae.create("f", ["x", "p"], ["ode"])
+    xdot = f(1.1, 2.5)
+    zs = ca.rootfinder("zs", "newton", ca.Function("g", [z, x], [z**3 + z - x]))(0, 1.1)
+    self.checkarray(xdot, -2.5 * 1.1 + zs, digits=10)
+
+    # Cleanup
+    f = None
+    dae = None
+    gc.collect()
+    if os.path.exists(fmu_file):
+        os.remove(fmu_file)
+
+  @memory_heavy() # FMU has a memleak
   def test_cstr(self):
     fmu_file = "../data/cstr.fmu"
     if not os.path.exists(fmu_file):
