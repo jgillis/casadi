@@ -531,6 +531,9 @@ protected:
   // fmi-ls-dae: value reference of the parameter enabling DAE mode, -1 if none
   casadi_int enable_dae_vr_;
 
+  // Initial equation residuals (OpenModelica fmi-ls-dae annotation), FMU output "ialg"
+  std::vector<size_t> ialg_;
+
   /// Name of instance
   std::string name_;
 

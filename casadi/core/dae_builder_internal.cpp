@@ -3091,6 +3091,7 @@ Function DaeBuilderInternal::fmu_fun(const std::string& name,
     scheme["quad"] = indices(Category::Q);
     for (size_t& i : scheme["quad"]) i = variable(i).der;
     scheme["alg"] = indices(Category::ALG);
+    scheme["ialg"] = ialg_;
     scheme["y"] = indices(Category::Y);
   }
   // Auxilliary variables, if any
@@ -4196,6 +4197,7 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
         has_lsdae = true;
       } catch (const std::exception& e) {
         enable_dae_vr_ = -1;
+        ialg_.clear();
         casadi_warning("Failed to load LS-DAE manifest: " + std::string(e.what()));
       }
     }
@@ -4289,6 +4291,14 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
             }
           }
           casadi_assert(found, "Missing index-1 formulation");
+        } else if (e.name == "InitialResidual") {
+          // Initial equation residual
+          ialg_.push_back(vrmap_.at(e.attribute<size_t>("valueReference")));
+          // Corresponding variable
+          Variable& v = variable(ialg_.back());
+          // Get dependencies
+          v.dependencies = read_dependencies(e, default_dependencies);
+          v.dependenciesKind = read_dependencies_kind(e, v.dependencies.size());
         } else {
           // Unknown
           casadi_error("Unknown ModelStructure element: " + e.name);
@@ -4457,9 +4467,25 @@ XmlNode DaeBuilderInternal::import_ls_dae(const std::string& lsdae) {
     categorize(vrmap_.at(vr), Category::Z);
   }
 
-  // Return replacement
+  // Replacement ModelStructure
   casadi_assert(ls_manifest.has_child("ModelStructure"), "Missing 'ModelStructure'");
-  return ls_manifest["ModelStructure"];
+  XmlNode ms = ls_manifest["ModelStructure"];
+
+  // Initial equation residuals, cf. the OpenModelica fmi-ls-dae annotation:
+  // <Annotation type="org.openmodelica.fmi-ls-dae.initial-residuals"><InitialResiduals>
+  // <Residual valueReference=".." dependencies=".." dependenciesKind=".."/>..
+  if (ls_manifest.has_child("Annotations")) {
+    for (const XmlNode& a : ls_manifest["Annotations"].children) {
+      if (a.attribute<std::string>("type", "") != "org.openmodelica.fmi-ls-dae.initial-residuals"
+          || !a.has_child("InitialResiduals")) continue;
+      for (const XmlNode& r : a["InitialResiduals"].children) {
+        XmlNode e = r;
+        e.name = "InitialResidual";
+        ms.children.push_back(e);
+      }
+    }
+  }
+  return ms;
 }
 
 void DaeBuilderInternal::import_binding_equations(const XmlNode& eqs) {
